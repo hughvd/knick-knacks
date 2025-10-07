@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GEPA Tree Visualization</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8f9fa;
+            --text-primary: #212529;
+            --text-secondary: #6c757d;
+            --border-color: #dee2e6;
+            --accent-color: #0066cc;
+            --accent-hover: #0052a3;
+            --card-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            --node-color: #4da3ff;
+            --node-stroke: #0066cc;
+            --link-color: #adb5bd;
+        }
+
+        body.dark-mode {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --text-primary: #e4e4e4;
+            --text-secondary: #a0a0a0;
+            --border-color: #404040;
+            --accent-color: #4da3ff;
+            --accent-hover: #66b3ff;
+            --card-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            --node-color: #4da3ff;
+            --node-stroke: #66b3ff;
+            --link-color: #6c757d;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            transition: background-color 0.3s, color 0.3s;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 0;
+        }
+
+        header {
+            background-color: var(--bg-primary);
+            padding: 1.5rem 0;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: var(--card-shadow);
+        }
+
+        header .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex: 1;
+        }
+
+        .back-link {
+            color: var(--accent-color);
+            text-decoration: none;
+            font-size: 1.5rem;
+        }
+
+        .back-link:hover {
+            color: var(--accent-hover);
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .theme-toggle {
+            background: none;
+            border: 2px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+
+        .theme-toggle:hover {
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        .controls {
+            background-color: var(--bg-primary);
+            padding: 1rem 2rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .controls label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .controls select {
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+
+        .controls button {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background-color 0.3s;
+        }
+
+        .controls button:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .info-text {
+            flex: 1;
+            text-align: right;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .tree-container {
+            background-color: var(--bg-primary);
+            margin: 1rem;
+            border-radius: 8px;
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--border-color);
+            overflow: auto;
+            position: relative;
+        }
+
+        #tree-svg {
+            display: block;
+        }
+
+        .node circle {
+            fill: var(--node-color);
+            stroke: var(--node-stroke);
+            stroke-width: 2px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .node:hover circle {
+            r: 8;
+            stroke-width: 3px;
+        }
+
+        .node.root circle {
+            fill: #dc3545;
+            stroke: #c82333;
+        }
+
+        .node text {
+            font-size: 11px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            fill: var(--text-primary);
+            pointer-events: none;
+        }
+
+        .link {
+            fill: none;
+            stroke: var(--link-color);
+            stroke-width: 1.5px;
+        }
+
+        .tooltip {
+            position: absolute;
+            background-color: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 0.75rem;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            box-shadow: var(--card-shadow);
+            z-index: 1000;
+            max-width: 300px;
+        }
+
+        .tooltip.active {
+            opacity: 1;
+        }
+
+        .tooltip-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .tooltip-info {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .node-info-panel {
+            position: fixed;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 350px;
+            background-color: var(--bg-primary);
+            border-left: 1px solid var(--border-color);
+            box-shadow: -2px 0 8px rgba(0,0,0,0.1);
+            transform: translateX(100%);
+            transition: transform 0.3s;
+            overflow-y: auto;
+            z-index: 100;
+            padding: 2rem;
+        }
+
+        body.dark-mode .node-info-panel {
+            box-shadow: -2px 0 8px rgba(0,0,0,0.4);
+        }
+
+        .node-info-panel.active {
+            transform: translateX(0);
+        }
+
+        .close-panel {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .close-panel:hover {
+            color: var(--text-primary);
+        }
+
+        .node-info-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+            padding-right: 2rem;
+        }
+
+        .node-info-details {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .node-info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem;
+            background-color: var(--bg-secondary);
+            border-radius: 4px;
+        }
+
+        .node-info-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .node-info-value {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            text-align: right;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 1rem;
+            border-radius: 4px;
+            margin: 1rem;
+            border: 1px solid #f5c6cb;
+        }
+
+        body.dark-mode .error {
+            background-color: #4a1f1f;
+            color: #f8d7da;
+            border-color: #6b2a2a;
+        }
+
+        @media (max-width: 768px) {
+            header .container {
+                padding: 0 1rem;
+            }
+
+            .controls {
+                padding: 1rem;
+            }
+
+            h1 {
+                font-size: 1.2rem;
+            }
+
+            .node-info-panel {
+                width: 100%;
+            }
+
+            .tree-container {
+                margin: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="header-left">
+                <a href="index.html" class="back-link">←</a>
+                <h1 id="run-title">Tree Visualization</h1>
+            </div>
+            <button class="theme-toggle" onclick="toggleTheme()">🌓 Toggle Theme</button>
+        </div>
+    </header>
+
+    <div class="controls">
+        <label>Layout:</label>
+        <select id="layout-select" onchange="updateLayout()">
+            <option value="tree">Tree (Top-Down)</option>
+            <option value="radial">Radial</option>
+            <option value="cluster">Cluster</option>
+        </select>
+        <button onclick="resetZoom()">Reset Zoom</button>
+        <button onclick="expandAll()">Expand All</button>
+        <button onclick="collapseAll()">Collapse All</button>
+        <div class="info-text" id="info-text">Loading...</div>
+    </div>
+
+    <div id="error-container"></div>
+    <div id="loading" class="loading">Loading tree structure...</div>
+
+    <div class="tree-container" id="tree-container" style="display: none;">
+        <svg id="tree-svg"></svg>
+    </div>
+
+    <div class="tooltip" id="tooltip">
+        <div class="tooltip-title" id="tooltip-title"></div>
+        <div class="tooltip-info" id="tooltip-info"></div>
+    </div>
+
+    <div class="node-info-panel" id="node-info-panel">
+        <button class="close-panel" onclick="closePanel()">×</button>
+        <div class="node-info-title" id="panel-title">Node Details</div>
+        <div class="node-info-details" id="panel-details"></div>
+    </div>
+
+    <script>
+        let treeData = null;
+        let root = null;
+        let svg = null;
+        let g = null;
+        let zoom = null;
+        let currentLayout = 'tree';
+        let runName = null;
+
+        // Theme management
+        function toggleTheme() {
+            document.body.classList.toggle('dark-mode');
+            localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+            if (root) renderTree();
+        }
+
+        if (localStorage.getItem('theme') === 'dark') {
+            document.body.classList.add('dark-mode');
+        }
+
+        // Get run name from URL
+        function getRunName() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('run');
+        }
+
+        // Load tree structure
+        async function loadTreeStructure() {
+            runName = getRunName();
+            if (!runName) {
+                showError('No run specified in URL');
+                document.getElementById('loading').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('run-title').textContent = `Tree: ${runName}`;
+
+            try {
+                const response = await fetch(`data/gepa/runs/${runName}/tree_structure.json`);
+                if (!response.ok) throw new Error('Failed to load tree structure');
+
+                const data = await response.json();
+
+                // Find root node (node with parent_id === null)
+                const rootNode = Object.values(data).find(node => node.parent_id === null && node.run_id !== 'traces');
+
+                if (!rootNode) {
+                    throw new Error('No root node found in tree structure');
+                }
+
+                // Build hierarchical structure
+                treeData = buildHierarchy(data, rootNode);
+
+                initializeTree();
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('tree-container').style.display = 'block';
+
+                const totalNodes = Object.keys(data).filter(k => k !== 'traces').length;
+                document.getElementById('info-text').textContent = `${totalNodes} nodes`;
+            } catch (error) {
+                console.error('Error loading tree structure:', error);
+                showError(`Failed to load tree structure: ${error.message}`);
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        function buildHierarchy(data, node) {
+            const result = {
+                id: node.run_id,
+                name: node.run_name,
+                children: []
+            };
+
+            if (node.children && node.children.length > 0) {
+                result.children = node.children
+                    .map(childId => {
+                        const childNode = data[childId];
+                        return childNode ? buildHierarchy(data, childNode) : null;
+                    })
+                    .filter(child => child !== null);
+            }
+
+            return result;
+        }
+
+        function showError(message) {
+            const errorContainer = document.getElementById('error-container');
+            errorContainer.innerHTML = `<div class="error">${message}</div>`;
+        }
+
+        function initializeTree() {
+            const container = document.getElementById('tree-container');
+            const width = Math.max(1200, container.clientWidth);
+            const height = Math.max(800, container.clientHeight || 800);
+
+            svg = d3.select('#tree-svg')
+                .attr('width', width)
+                .attr('height', height);
+
+            // Clear existing content
+            svg.selectAll('*').remove();
+
+            // Add zoom behavior
+            zoom = d3.zoom()
+                .scaleExtent([0.1, 4])
+                .on('zoom', (event) => {
+                    g.attr('transform', event.transform);
+                });
+
+            svg.call(zoom);
+
+            g = svg.append('g');
+
+            // Center the initial view
+            const initialTransform = d3.zoomIdentity
+                .translate(width / 2, 50);
+            svg.call(zoom.transform, initialTransform);
+
+            renderTree();
+        }
+
+        function renderTree() {
+            const width = parseInt(svg.attr('width'));
+            const height = parseInt(svg.attr('height'));
+
+            root = d3.hierarchy(treeData);
+
+            let treeLayout;
+
+            switch(currentLayout) {
+                case 'radial':
+                    treeLayout = d3.tree()
+                        .size([2 * Math.PI, Math.min(width, height) / 2 - 100])
+                        .separation((a, b) => (a.parent === b.parent ? 1 : 2) / a.depth);
+                    break;
+                case 'cluster':
+                    treeLayout = d3.cluster()
+                        .size([height - 100, width - 200]);
+                    break;
+                default: // tree
+                    treeLayout = d3.tree()
+                        .size([width - 200, height - 100])
+                        .separation((a, b) => a.parent === b.parent ? 1 : 1.5);
+                    break;
+            }
+
+            treeLayout(root);
+
+            // Clear existing
+            g.selectAll('*').remove();
+
+            const isDark = document.body.classList.contains('dark-mode');
+            const linkColor = isDark ? '#6c757d' : '#adb5bd';
+            const nodeColor = isDark ? '#4da3ff' : '#4da3ff';
+
+            // Draw links
+            if (currentLayout === 'radial') {
+                g.selectAll('.link')
+                    .data(root.links())
+                    .join('path')
+                    .attr('class', 'link')
+                    .attr('d', d3.linkRadial()
+                        .angle(d => d.x)
+                        .radius(d => d.y))
+                    .attr('stroke', linkColor);
+            } else {
+                g.selectAll('.link')
+                    .data(root.links())
+                    .join('path')
+                    .attr('class', 'link')
+                    .attr('d', d3.linkHorizontal()
+                        .x(d => currentLayout === 'tree' ? d.x : d.y)
+                        .y(d => currentLayout === 'tree' ? d.y : d.x))
+                    .attr('stroke', linkColor);
+            }
+
+            // Draw nodes
+            const nodes = g.selectAll('.node')
+                .data(root.descendants())
+                .join('g')
+                .attr('class', d => d.depth === 0 ? 'node root' : 'node')
+                .attr('transform', d => {
+                    if (currentLayout === 'radial') {
+                        return `rotate(${d.x * 180 / Math.PI - 90}) translate(${d.y},0)`;
+                    } else if (currentLayout === 'tree') {
+                        return `translate(${d.x},${d.y})`;
+                    } else {
+                        return `translate(${d.y},${d.x})`;
+                    }
+                })
+                .on('click', (event, d) => {
+                    showNodeInfo(d);
+                })
+                .on('mouseover', (event, d) => {
+                    showTooltip(event, d);
+                })
+                .on('mouseout', hideTooltip);
+
+            nodes.append('circle')
+                .attr('r', 5);
+
+            nodes.append('text')
+                .attr('dy', '0.31em')
+                .attr('x', d => {
+                    if (currentLayout === 'radial') {
+                        return d.x < Math.PI === !d.children ? 6 : -6;
+                    }
+                    return d.children ? -8 : 8;
+                })
+                .attr('text-anchor', d => {
+                    if (currentLayout === 'radial') {
+                        return d.x < Math.PI === !d.children ? 'start' : 'end';
+                    }
+                    return d.children ? 'end' : 'start';
+                })
+                .attr('transform', d => currentLayout === 'radial' && d.x >= Math.PI ? 'rotate(180)' : null)
+                .text(d => d.data.name)
+                .clone(true).lower()
+                .attr('stroke', isDark ? '#1a1a1a' : '#ffffff')
+                .attr('stroke-width', 3);
+        }
+
+        function showTooltip(event, d) {
+            const tooltip = document.getElementById('tooltip');
+            const title = document.getElementById('tooltip-title');
+            const info = document.getElementById('tooltip-info');
+
+            title.textContent = d.data.name;
+            info.innerHTML = `
+                <div>ID: ${d.data.id.substring(0, 8)}...</div>
+                <div>Depth: ${d.depth}</div>
+                <div>Children: ${d.children ? d.children.length : 0}</div>
+            `;
+
+            tooltip.style.left = event.pageX + 10 + 'px';
+            tooltip.style.top = event.pageY + 10 + 'px';
+            tooltip.classList.add('active');
+        }
+
+        function hideTooltip() {
+            document.getElementById('tooltip').classList.remove('active');
+        }
+
+        function showNodeInfo(d) {
+            const panel = document.getElementById('node-info-panel');
+            const title = document.getElementById('panel-title');
+            const details = document.getElementById('panel-details');
+
+            title.textContent = d.data.name;
+            details.innerHTML = `
+                <div class="node-info-item">
+                    <span class="node-info-label">Run ID</span>
+                    <span class="node-info-value">${d.data.id}</span>
+                </div>
+                <div class="node-info-item">
+                    <span class="node-info-label">Depth</span>
+                    <span class="node-info-value">${d.depth}</span>
+                </div>
+                <div class="node-info-item">
+                    <span class="node-info-label">Children</span>
+                    <span class="node-info-value">${d.children ? d.children.length : 0}</span>
+                </div>
+                <div class="node-info-item">
+                    <span class="node-info-label">Descendants</span>
+                    <span class="node-info-value">${d.descendants().length - 1}</span>
+                </div>
+                ${d.parent ? `
+                <div class="node-info-item">
+                    <span class="node-info-label">Parent</span>
+                    <span class="node-info-value">${d.parent.data.name}</span>
+                </div>
+                ` : ''}
+            `;
+
+            panel.classList.add('active');
+        }
+
+        function closePanel() {
+            document.getElementById('node-info-panel').classList.remove('active');
+        }
+
+        function updateLayout() {
+            currentLayout = document.getElementById('layout-select').value;
+            if (root) renderTree();
+        }
+
+        function resetZoom() {
+            const width = parseInt(svg.attr('width'));
+            const initialTransform = d3.zoomIdentity.translate(width / 2, 50);
+            svg.transition().duration(750).call(zoom.transform, initialTransform);
+        }
+
+        function expandAll() {
+            root.each(d => {
+                d._children = null;
+            });
+            renderTree();
+        }
+
+        function collapseAll() {
+            root.each(d => {
+                if (d.children && d.depth > 0) {
+                    d._children = d.children;
+                    d.children = null;
+                }
+            });
+            renderTree();
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (root) {
+                initializeTree();
+            }
+        });
+
+        // Load data on page load
+        loadTreeStructure();
+    </script>
+</body>
+</html>

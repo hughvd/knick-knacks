@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GEPA Run Viewer</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8f9fa;
+            --text-primary: #212529;
+            --text-secondary: #6c757d;
+            --border-color: #dee2e6;
+            --accent-color: #0066cc;
+            --accent-hover: #0052a3;
+            --card-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            --best-color: #28a745;
+        }
+
+        body.dark-mode {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --text-primary: #e4e4e4;
+            --text-secondary: #a0a0a0;
+            --border-color: #404040;
+            --accent-color: #4da3ff;
+            --accent-hover: #66b3ff;
+            --card-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            --best-color: #4ade80;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            background-color: var(--bg-primary);
+            padding: 1.5rem 0;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: var(--card-shadow);
+        }
+
+        header .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex: 1;
+        }
+
+        .back-link {
+            color: var(--accent-color);
+            text-decoration: none;
+            font-size: 1.5rem;
+        }
+
+        .back-link:hover {
+            color: var(--accent-hover);
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .tree-link {
+            background-color: var(--accent-color);
+            color: white;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            transition: background-color 0.3s;
+        }
+
+        .tree-link:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .theme-toggle {
+            background: none;
+            border: 2px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+
+        .theme-toggle:hover {
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        .metadata-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .metadata-card {
+            background-color: var(--bg-primary);
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--border-color);
+        }
+
+        .metadata-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .metadata-value {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-top: 0.25rem;
+            color: var(--text-primary);
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+
+        .plots-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .plot-card {
+            background-color: var(--bg-primary);
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--border-color);
+        }
+
+        .plot-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .plot {
+            width: 100%;
+            height: 400px;
+        }
+
+        .strategy-panel {
+            background-color: var(--bg-primary);
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--border-color);
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .strategy-panel h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .strategy-details {
+            display: none;
+        }
+
+        .strategy-details.active {
+            display: block;
+        }
+
+        .strategy-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background-color: var(--bg-secondary);
+            border-radius: 6px;
+        }
+
+        .strategy-metric {
+            text-align: center;
+        }
+
+        .strategy-metric-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .strategy-metric-value {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-top: 0.25rem;
+        }
+
+        .strategy-text {
+            background-color: var(--bg-secondary);
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .placeholder {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            border: 1px solid #f5c6cb;
+        }
+
+        body.dark-mode .error {
+            background-color: #4a1f1f;
+            color: #f8d7da;
+            border-color: #6b2a2a;
+        }
+
+        .controls {
+            background-color: var(--bg-primary);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--border-color);
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .controls label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .controls input {
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            width: 100px;
+        }
+
+        .controls button {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background-color 0.3s;
+        }
+
+        .controls button:hover {
+            background-color: var(--accent-hover);
+        }
+
+        @media (min-width: 1024px) {
+            .layout.with-strategy {
+                grid-template-columns: 2fr 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            header .container {
+                padding: 0 1rem;
+            }
+
+            h1 {
+                font-size: 1.2rem;
+            }
+
+            .plot {
+                height: 300px;
+            }
+
+            .metadata-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="header-left">
+                <a href="index.html" class="back-link">←</a>
+                <h1 id="run-title">Loading...</h1>
+            </div>
+            <div class="header-actions">
+                <a href="#" class="tree-link" id="tree-link" onclick="openTree(event)">🌳 View Tree</a>
+                <button class="theme-toggle" onclick="toggleTheme()">🌓 Toggle Theme</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div id="error-container"></div>
+        <div id="loading" class="loading">Loading run data...</div>
+
+        <div id="content" style="display: none;">
+            <div class="metadata-grid" id="metadata-grid"></div>
+
+            <div class="controls">
+                <label>Filter Score Range:</label>
+                <input type="number" id="min-score" placeholder="Min" step="0.01">
+                <span>to</span>
+                <input type="number" id="max-score" placeholder="Max" step="0.01">
+                <button onclick="applyFilter()">Apply Filter</button>
+                <button onclick="resetFilter()">Reset</button>
+            </div>
+
+            <div class="layout" id="layout">
+                <div class="plots-container">
+                    <div class="plot-card">
+                        <div class="plot-title">Normalized Score vs Iteration</div>
+                        <div id="score-plot" class="plot"></div>
+                    </div>
+                    <div class="plot-card">
+                        <div class="plot-title">Total Profit vs Iteration</div>
+                        <div id="profit-plot" class="plot"></div>
+                    </div>
+                </div>
+
+                <div class="strategy-panel">
+                    <h2>Strategy Details</h2>
+                    <div class="placeholder" id="strategy-placeholder">
+                        Click on a point in the plots to view strategy details
+                    </div>
+                    <div class="strategy-details" id="strategy-details">
+                        <div class="strategy-metrics" id="strategy-metrics"></div>
+                        <div class="strategy-text" id="strategy-text"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let runData = null;
+        let evaluations = [];
+        let filteredEvaluations = [];
+        let selectedPoint = null;
+
+        // Theme management
+        function toggleTheme() {
+            document.body.classList.toggle('dark-mode');
+            localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+            updatePlots();
+        }
+
+        if (localStorage.getItem('theme') === 'dark') {
+            document.body.classList.add('dark-mode');
+        }
+
+        // Get run name from URL
+        function getRunName() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('run');
+        }
+
+        // Load run data
+        async function loadRunData() {
+            const runName = getRunName();
+            if (!runName) {
+                showError('No run specified in URL');
+                document.getElementById('loading').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('run-title').textContent = runName;
+
+            try {
+                // Load metadata
+                const metadataResponse = await fetch(`data/gepa/runs/${runName}/metadata.json`);
+                if (!metadataResponse.ok) throw new Error('Failed to load metadata');
+                const metadata = await metadataResponse.json();
+
+                // Load evaluations
+                const evaluationsResponse = await fetch(`data/gepa/runs/${runName}/evaluations.json`);
+                if (!evaluationsResponse.ok) throw new Error('Failed to load evaluations');
+                const evaluationsData = await evaluationsResponse.json();
+                evaluations = evaluationsData.history || [];
+                filteredEvaluations = [...evaluations];
+
+                runData = metadata;
+                displayMetadata(metadata);
+                updatePlots();
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
+            } catch (error) {
+                console.error('Error loading run data:', error);
+                showError(`Failed to load run data: ${error.message}`);
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        function showError(message) {
+            const errorContainer = document.getElementById('error-container');
+            errorContainer.innerHTML = `<div class="error">${message}</div>`;
+        }
+
+        function displayMetadata(metadata) {
+            const grid = document.getElementById('metadata-grid');
+            grid.innerHTML = `
+                <div class="metadata-card">
+                    <div class="metadata-label">Total Evaluations</div>
+                    <div class="metadata-value">${metadata.num_evaluations || 0}</div>
+                </div>
+                <div class="metadata-card">
+                    <div class="metadata-label">Best Score</div>
+                    <div class="metadata-value">${(metadata.best_score || 0).toFixed(3)}</div>
+                </div>
+                <div class="metadata-card">
+                    <div class="metadata-label">Best Profit</div>
+                    <div class="metadata-value">$${(metadata.best_profit || 0).toFixed(2)}</div>
+                </div>
+                <div class="metadata-card">
+                    <div class="metadata-label">Best Step</div>
+                    <div class="metadata-value">${metadata.best_step || '-'}</div>
+                </div>
+            `;
+        }
+
+        function updatePlots() {
+            if (filteredEvaluations.length === 0) return;
+
+            const isDark = document.body.classList.contains('dark-mode');
+            const steps = filteredEvaluations.map(e => e.step);
+            const scores = filteredEvaluations.map(e => e.normalized_score);
+            const profits = filteredEvaluations.map(e => e.total_profit);
+            const strategies = filteredEvaluations.map(e => e.strategy);
+
+            // Find best step
+            const bestStep = runData?.best_step || 0;
+            const bestIndex = filteredEvaluations.findIndex(e => e.step === bestStep);
+
+            // Common layout settings
+            const layoutSettings = {
+                paper_bgcolor: isDark ? '#1a1a1a' : '#ffffff',
+                plot_bgcolor: isDark ? '#2d2d2d' : '#f8f9fa',
+                font: {
+                    color: isDark ? '#e4e4e4' : '#212529',
+                    family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                },
+                xaxis: {
+                    title: 'Iteration',
+                    gridcolor: isDark ? '#404040' : '#dee2e6',
+                    zerolinecolor: isDark ? '#404040' : '#dee2e6'
+                },
+                yaxis: {
+                    gridcolor: isDark ? '#404040' : '#dee2e6',
+                    zerolinecolor: isDark ? '#404040' : '#dee2e6'
+                },
+                hovermode: 'closest',
+                margin: { t: 20, r: 20, b: 50, l: 60 }
+            };
+
+            const config = {
+                responsive: true,
+                displayModeBar: true,
+                displaylogo: false,
+                modeBarButtonsToRemove: ['lasso2d', 'select2d']
+            };
+
+            // Score plot
+            const scoreTrace = {
+                x: steps,
+                y: scores,
+                mode: 'lines+markers',
+                type: 'scatter',
+                name: 'Score',
+                line: { color: '#4da3ff', width: 2 },
+                marker: {
+                    size: steps.map((_, i) => i === bestIndex ? 12 : 6),
+                    color: steps.map((_, i) => i === bestIndex ? '#4ade80' : '#4da3ff'),
+                    line: {
+                        color: steps.map((_, i) => i === bestIndex ? '#22c55e' : '#4da3ff'),
+                        width: steps.map((_, i) => i === bestIndex ? 2 : 0)
+                    }
+                },
+                hovertemplate: '<b>Step %{x}</b><br>' +
+                              'Score: %{y:.3f}<br>' +
+                              '<extra></extra>',
+                customdata: strategies
+            };
+
+            Plotly.newPlot('score-plot', [scoreTrace], {
+                ...layoutSettings,
+                yaxis: { ...layoutSettings.yaxis, title: 'Normalized Score' }
+            }, config);
+
+            // Profit plot with best-so-far line
+            const bestSoFar = [];
+            let currentBest = -Infinity;
+            profits.forEach(p => {
+                currentBest = Math.max(currentBest, p);
+                bestSoFar.push(currentBest);
+            });
+
+            const profitTrace = {
+                x: steps,
+                y: profits,
+                mode: 'lines+markers',
+                type: 'scatter',
+                name: 'Profit',
+                line: { color: '#ffa500', width: 2 },
+                marker: {
+                    size: steps.map((_, i) => i === bestIndex ? 12 : 6),
+                    color: steps.map((_, i) => i === bestIndex ? '#4ade80' : '#ffa500'),
+                    line: {
+                        color: steps.map((_, i) => i === bestIndex ? '#22c55e' : '#ffa500'),
+                        width: steps.map((_, i) => i === bestIndex ? 2 : 0)
+                    }
+                },
+                hovertemplate: '<b>Step %{x}</b><br>' +
+                              'Profit: $%{y:.2f}<br>' +
+                              '<extra></extra>',
+                customdata: strategies
+            };
+
+            const bestSoFarTrace = {
+                x: steps,
+                y: bestSoFar,
+                mode: 'lines',
+                type: 'scatter',
+                name: 'Best So Far',
+                line: { color: '#4ade80', width: 2, dash: 'dash' },
+                hovertemplate: '<b>Step %{x}</b><br>' +
+                              'Best So Far: $%{y:.2f}<br>' +
+                              '<extra></extra>'
+            };
+
+            Plotly.newPlot('profit-plot', [profitTrace, bestSoFarTrace], {
+                ...layoutSettings,
+                yaxis: { ...layoutSettings.yaxis, title: 'Total Profit ($)' }
+            }, config);
+
+            // Add click handlers
+            document.getElementById('score-plot').on('plotly_click', handlePlotClick);
+            document.getElementById('profit-plot').on('plotly_click', handlePlotClick);
+        }
+
+        function handlePlotClick(data) {
+            if (!data.points || data.points.length === 0) return;
+
+            const pointIndex = data.points[0].pointIndex;
+            const evaluation = filteredEvaluations[pointIndex];
+
+            if (!evaluation) return;
+
+            displayStrategy(evaluation);
+            document.getElementById('layout').classList.add('with-strategy');
+        }
+
+        function displayStrategy(evaluation) {
+            const placeholder = document.getElementById('strategy-placeholder');
+            const details = document.getElementById('strategy-details');
+            const metrics = document.getElementById('strategy-metrics');
+            const text = document.getElementById('strategy-text');
+
+            placeholder.style.display = 'none';
+            details.classList.add('active');
+
+            const isBest = evaluation.step === runData?.best_step;
+
+            metrics.innerHTML = `
+                <div class="strategy-metric">
+                    <div class="strategy-metric-label">Step</div>
+                    <div class="strategy-metric-value">${evaluation.step}${isBest ? ' ⭐' : ''}</div>
+                </div>
+                <div class="strategy-metric">
+                    <div class="strategy-metric-label">Score</div>
+                    <div class="strategy-metric-value">${evaluation.normalized_score.toFixed(3)}</div>
+                </div>
+                <div class="strategy-metric">
+                    <div class="strategy-metric-label">Profit</div>
+                    <div class="strategy-metric-value">$${evaluation.total_profit.toFixed(2)}</div>
+                </div>
+            `;
+
+            text.textContent = evaluation.strategy;
+        }
+
+        function applyFilter() {
+            const minScore = parseFloat(document.getElementById('min-score').value) || -Infinity;
+            const maxScore = parseFloat(document.getElementById('max-score').value) || Infinity;
+
+            filteredEvaluations = evaluations.filter(e =>
+                e.normalized_score >= minScore && e.normalized_score <= maxScore
+            );
+
+            updatePlots();
+        }
+
+        function resetFilter() {
+            document.getElementById('min-score').value = '';
+            document.getElementById('max-score').value = '';
+            filteredEvaluations = [...evaluations];
+            updatePlots();
+        }
+
+        function openTree(event) {
+            event.preventDefault();
+            const runName = getRunName();
+            if (runName) {
+                window.location.href = `tree-viewer.html?run=${encodeURIComponent(runName)}`;
+            }
+        }
+
+        // Load data on page load
+        loadRunData();
+    </script>
+</body>
+</html>
