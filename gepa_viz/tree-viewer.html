@@ -162,12 +162,15 @@
             border-radius: 8px;
             box-shadow: var(--card-shadow);
             border: 1px solid var(--border-color);
-            overflow: auto;
+            overflow: visible;
             position: relative;
+            min-height: 600px;
         }
 
         #tree-svg {
             display: block;
+            width: 100%;
+            height: auto;
         }
 
         .node circle {
@@ -489,12 +492,14 @@
 
         function initializeTree() {
             const container = document.getElementById('tree-container');
-            const width = Math.max(1200, container.clientWidth);
-            const height = Math.max(800, container.clientHeight || 800);
+            const width = container.clientWidth || window.innerWidth - 32; // Account for margins
+            const height = Math.max(600, window.innerHeight - 200);
 
             svg = d3.select('#tree-svg')
                 .attr('width', width)
-                .attr('height', height);
+                .attr('height', height)
+                .attr('viewBox', `0 0 ${width} ${height}`)
+                .attr('preserveAspectRatio', 'xMidYMid meet');
 
             // Clear existing content
             svg.selectAll('*').remove();
@@ -510,9 +515,9 @@
 
             g = svg.append('g');
 
-            // Center the initial view
+            // Center the initial view with better padding
             const initialTransform = d3.zoomIdentity
-                .translate(width / 2, 50);
+                .translate(150, 75); // Start with left/top padding
             svg.call(zoom.transform, initialTransform);
 
             renderTree();
@@ -529,16 +534,16 @@
             switch(currentLayout) {
                 case 'radial':
                     treeLayout = d3.tree()
-                        .size([2 * Math.PI, Math.min(width, height) / 2 - 100])
+                        .size([2 * Math.PI, Math.min(width, height) / 2 - 150])
                         .separation((a, b) => (a.parent === b.parent ? 1 : 2) / a.depth);
                     break;
                 case 'cluster':
                     treeLayout = d3.cluster()
-                        .size([height - 100, width - 200]);
+                        .size([height - 150, width - 300]);
                     break;
                 default: // tree
                     treeLayout = d3.tree()
-                        .size([width - 200, height - 100])
+                        .size([width - 300, height - 150])
                         .separation((a, b) => a.parent === b.parent ? 1 : 1.5);
                     break;
             }
