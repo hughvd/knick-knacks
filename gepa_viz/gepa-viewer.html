@@ -410,6 +410,7 @@
         let runData = null;
         let evaluations = [];
         let filteredEvaluations = [];
+        let candidates = null;
         let selectedPoint = null;
 
         // Theme management
@@ -452,6 +453,16 @@
                 const evaluationsData = await evaluationsResponse.json();
                 evaluations = evaluationsData.history || [];
                 filteredEvaluations = [...evaluations];
+
+                // Load candidates for strategies
+                try {
+                    const candidatesResponse = await fetch(`data/gepa/runs/${runName}/candidates.json`);
+                    if (candidatesResponse.ok) {
+                        candidates = await candidatesResponse.json();
+                    }
+                } catch (e) {
+                    console.warn('candidates.json not available (old run format)');
+                }
 
                 runData = metadata;
                 displayMetadata(metadata);

@@ -1,15 +1,15 @@
 {
   "runs": [
     {
-      "run_name": "2025-10-06_180612_strategy_gepa_agent0",
-      "original_run_id": "d7a01c4d0f6544a68ec47c5bd2481a16",
-      "experiment_id": "297329096704358092",
-      "export_date": "2025-10-06_180612",
+      "run_name": "2025-10-08_163209_strategy_gepa_agent0",
+      "original_run_id": "452f03af3ef74183ae4c255ee371d5f9",
+      "experiment_id": "580876638885452028",
+      "export_date": "2025-10-08_163209",
       "mlflow_run_name": "strategy_gepa_agent0",
-      "num_evaluations": 147,
-      "best_profit": 1070.4306522689587,
-      "best_score": 0.969619316615958,
-      "best_step": 78,
+      "num_evaluations": 144,
+      "best_profit": 1080.6711482370224,
+      "best_score": 0.9788953801155554,
+      "best_step": 118,
       "config": {
         "evaluation_periods": 20,
         "evaluation_seed": 73,
@@ -17,5 +17,5 @@
       }
     }
   ],
-  "last_updated": "2025-10-06T18:06:12.607825"
+  "last_updated": "2025-10-08T16:32:09.619772"
 }

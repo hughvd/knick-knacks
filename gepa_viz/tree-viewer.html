@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GEPA Tree Visualization</title>
+    <title>GEPA DAG Visualization</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         * {
@@ -21,9 +21,9 @@
             --accent-color: #0066cc;
             --accent-hover: #0052a3;
             --card-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            --node-color: #4da3ff;
-            --node-stroke: #0066cc;
-            --link-color: #adb5bd;
+            --best-color: #06b6d4;
+            --pareto-color: #f97316;
+            --normal-color: #9ca3af;
         }
 
         body.dark-mode {
@@ -35,9 +35,9 @@
             --accent-color: #4da3ff;
             --accent-hover: #66b3ff;
             --card-shadow: 0 2px 8px rgba(0,0,0,0.4);
-            --node-color: #4da3ff;
-            --node-stroke: #66b3ff;
-            --link-color: #6c757d;
+            --best-color: #22d3ee;
+            --pareto-color: #fb923c;
+            --normal-color: #6b7280;
         }
 
         body {
@@ -149,11 +149,25 @@
             background-color: var(--accent-hover);
         }
 
-        .info-text {
-            flex: 1;
-            text-align: right;
+        .legend {
+            display: flex;
+            gap: 1.5rem;
+            margin-left: auto;
+            align-items: center;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
             font-size: 0.85rem;
-            color: var(--text-secondary);
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid var(--border-color);
         }
 
         .tree-container {
@@ -167,28 +181,41 @@
             min-height: 600px;
         }
 
-        #tree-svg {
+        #dag-svg {
             display: block;
             width: 100%;
             height: auto;
         }
 
         .node circle {
-            fill: var(--node-color);
-            stroke: var(--node-stroke);
-            stroke-width: 2px;
+            stroke-width: 3px;
             cursor: pointer;
             transition: all 0.3s;
         }
 
         .node:hover circle {
-            r: 8;
-            stroke-width: 3px;
+            stroke-width: 4px;
+            r: 12;
         }
 
-        .node.root circle {
-            fill: #dc3545;
-            stroke: #c82333;
+        .node.best circle {
+            fill: var(--best-color);
+            stroke: var(--best-color);
+        }
+
+        .node.pareto circle {
+            fill: var(--pareto-color);
+            stroke: var(--pareto-color);
+        }
+
+        .node.normal circle {
+            fill: var(--normal-color);
+            stroke: var(--normal-color);
+        }
+
+        .node.selected circle {
+            stroke: #fbbf24;
+            stroke-width: 5px;
         }
 
         .node text {
@@ -196,12 +223,19 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             fill: var(--text-primary);
             pointer-events: none;
+            font-weight: 600;
         }
 
         .link {
             fill: none;
-            stroke: var(--link-color);
-            stroke-width: 1.5px;
+            stroke: var(--border-color);
+            stroke-width: 2px;
+            marker-end: url(#arrowhead);
+        }
+
+        .link.highlighted {
+            stroke: #fbbf24;
+            stroke-width: 3px;
         }
 
         .tooltip {
@@ -233,12 +267,12 @@
             color: var(--text-secondary);
         }
 
-        .node-info-panel {
+        .strategy-panel {
             position: fixed;
             right: 0;
             top: 0;
             bottom: 0;
-            width: 350px;
+            width: 400px;
             background-color: var(--bg-primary);
             border-left: 1px solid var(--border-color);
             box-shadow: -2px 0 8px rgba(0,0,0,0.1);
@@ -249,11 +283,11 @@
             padding: 2rem;
         }
 
-        body.dark-mode .node-info-panel {
+        body.dark-mode .strategy-panel {
             box-shadow: -2px 0 8px rgba(0,0,0,0.4);
         }
 
-        .node-info-panel.active {
+        .strategy-panel.active {
             transform: translateX(0);
         }
 
@@ -278,7 +312,7 @@
             color: var(--text-primary);
         }
 
-        .node-info-title {
+        .strategy-title {
             font-size: 1.2rem;
             font-weight: 600;
             margin-bottom: 1rem;
@@ -286,30 +320,55 @@
             padding-right: 2rem;
         }
 
-        .node-info-details {
-            display: flex;
-            flex-direction: column;
+        .strategy-metrics {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
             gap: 0.75rem;
+            margin-bottom: 1rem;
         }
 
-        .node-info-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 0.5rem;
+        .strategy-metric {
             background-color: var(--bg-secondary);
-            border-radius: 4px;
+            padding: 0.75rem;
+            border-radius: 6px;
         }
 
-        .node-info-label {
-            font-size: 0.85rem;
+        .metric-label {
+            font-size: 0.75rem;
             color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        .node-info-value {
-            font-size: 0.85rem;
+        .metric-value {
+            font-size: 1.1rem;
             font-weight: 600;
             color: var(--text-primary);
-            text-align: right;
+            margin-top: 0.25rem;
+        }
+
+        .strategy-text-container {
+            margin-top: 1.5rem;
+        }
+
+        .strategy-text-label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .strategy-text {
+            background-color: var(--bg-secondary);
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 400px;
+            overflow-y: auto;
         }
 
         .loading {
@@ -347,12 +406,17 @@
                 font-size: 1.2rem;
             }
 
-            .node-info-panel {
+            .strategy-panel {
                 width: 100%;
             }
 
             .tree-container {
                 margin: 0.5rem;
+            }
+
+            .legend {
+                flex-basis: 100%;
+                margin-left: 0;
             }
         }
     </style>
@@ -361,8 +425,8 @@
     <header>
         <div class="container">
             <div class="header-left">
-                <a href="index.html" class="back-link">←</a>
-                <h1 id="run-title">Tree Visualization</h1>
+                <a href="gepa-viewer.html" class="back-link" id="back-link">←</a>
+                <h1 id="run-title">DAG Visualization</h1>
             </div>
             <button class="theme-toggle" onclick="toggleTheme()">🌓 Toggle Theme</button>
         </div>
@@ -371,21 +435,37 @@
     <div class="controls">
         <label>Layout:</label>
         <select id="layout-select" onchange="updateLayout()">
-            <option value="tree">Tree (Top-Down)</option>
-            <option value="radial">Radial</option>
-            <option value="cluster">Cluster</option>
+            <option value="hierarchical">Hierarchical (Top-Down)</option>
+            <option value="force">Force-Directed</option>
         </select>
         <button onclick="resetZoom()">Reset Zoom</button>
-        <button onclick="expandAll()">Expand All</button>
-        <button onclick="collapseAll()">Collapse All</button>
-        <div class="info-text" id="info-text">Loading...</div>
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: var(--best-color);"></div>
+                <span>Best</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: var(--pareto-color);"></div>
+                <span>Pareto Front</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: var(--normal-color);"></div>
+                <span>Normal</span>
+            </div>
+        </div>
     </div>
 
     <div id="error-container"></div>
-    <div id="loading" class="loading">Loading tree structure...</div>
+    <div id="loading" class="loading">Loading DAG structure...</div>
 
     <div class="tree-container" id="tree-container" style="display: none;">
-        <svg id="tree-svg"></svg>
+        <svg id="dag-svg">
+            <defs>
+                <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                    <polygon points="0 0, 10 3, 0 6" fill="var(--border-color)" />
+                </marker>
+            </defs>
+        </svg>
     </div>
 
     <div class="tooltip" id="tooltip">
@@ -393,26 +473,34 @@
         <div class="tooltip-info" id="tooltip-info"></div>
     </div>
 
-    <div class="node-info-panel" id="node-info-panel">
+    <div class="strategy-panel" id="strategy-panel">
         <button class="close-panel" onclick="closePanel()">×</button>
-        <div class="node-info-title" id="panel-title">Node Details</div>
-        <div class="node-info-details" id="panel-details"></div>
+        <div class="strategy-title" id="panel-title">Candidate Details</div>
+        <div class="strategy-metrics" id="panel-metrics"></div>
+        <div class="strategy-text-container">
+            <div class="strategy-text-label">Strategy:</div>
+            <div class="strategy-text" id="panel-strategy"></div>
+        </div>
     </div>
 
     <script>
-        let treeData = null;
-        let root = null;
+        let dagData = null;
+        let candidates = null;
+        let nodes = [];
+        let links = [];
         let svg = null;
         let g = null;
         let zoom = null;
-        let currentLayout = 'tree';
+        let currentLayout = 'hierarchical';
         let runName = null;
+        let selectedNode = null;
+        let simulation = null;
 
         // Theme management
         function toggleTheme() {
             document.body.classList.toggle('dark-mode');
             localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
-            if (root) renderTree();
+            if (dagData) renderDAG();
         }
 
         if (localStorage.getItem('theme') === 'dark') {
@@ -425,8 +513,8 @@
             return params.get('run');
         }
 
-        // Load tree structure
-        async function loadTreeStructure() {
+        // Load DAG and candidates data
+        async function loadData() {
             runName = getRunName();
             if (!runName) {
                 showError('No run specified in URL');
@@ -434,55 +522,30 @@
                 return;
             }
 
-            document.getElementById('run-title').textContent = `Tree: ${runName}`;
+            document.getElementById('run-title').textContent = `DAG: ${runName}`;
+            document.getElementById('back-link').href = `gepa-viewer.html?run=${encodeURIComponent(runName)}`;
 
             try {
-                const response = await fetch(`data/gepa/runs/${runName}/tree_structure.json`);
-                if (!response.ok) throw new Error('Failed to load tree structure');
+                // Load tree structure
+                const treeResponse = await fetch(`data/gepa/runs/${runName}/tree_structure.json`);
+                if (!treeResponse.ok) throw new Error('Failed to load tree structure');
+                dagData = await treeResponse.json();
 
-                const data = await response.json();
+                // Load candidates
+                const candidatesResponse = await fetch(`data/gepa/runs/${runName}/candidates.json`);
+                if (!candidatesResponse.ok) throw new Error('Failed to load candidates');
+                candidates = await candidatesResponse.json();
 
-                // Find root node (node with parent_id === null)
-                const rootNode = Object.values(data).find(node => node.parent_id === null && node.run_id !== 'traces');
-
-                if (!rootNode) {
-                    throw new Error('No root node found in tree structure');
-                }
-
-                // Build hierarchical structure
-                treeData = buildHierarchy(data, rootNode);
-
-                initializeTree();
+                buildGraph();
+                initializeVisualization();
 
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('tree-container').style.display = 'block';
-
-                const totalNodes = Object.keys(data).filter(k => k !== 'traces').length;
-                document.getElementById('info-text').textContent = `${totalNodes} nodes`;
             } catch (error) {
-                console.error('Error loading tree structure:', error);
-                showError(`Failed to load tree structure: ${error.message}`);
+                console.error('Error loading data:', error);
+                showError(`Failed to load data: ${error.message}`);
                 document.getElementById('loading').style.display = 'none';
             }
-        }
-
-        function buildHierarchy(data, node) {
-            const result = {
-                id: node.run_id,
-                name: node.run_name,
-                children: []
-            };
-
-            if (node.children && node.children.length > 0) {
-                result.children = node.children
-                    .map(childId => {
-                        const childNode = data[childId];
-                        return childNode ? buildHierarchy(data, childNode) : null;
-                    })
-                    .filter(child => child !== null);
-            }
-
-            return result;
         }
 
         function showError(message) {
@@ -490,21 +553,77 @@
             errorContainer.innerHTML = `<div class="error">${message}</div>`;
         }
 
-        function initializeTree() {
-            const container = document.getElementById('tree-container');
-            const width = container.clientWidth || window.innerWidth - 32; // Account for margins
-            const height = Math.max(600, window.innerHeight - 200);
+        function buildGraph() {
+            const numNodes = dagData.num_candidates;
+            const bestIdx = dagData.best_idx;
 
-            svg = d3.select('#tree-svg')
+            // Calculate Pareto front (nodes not dominated by any other node)
+            const paretoFront = new Set();
+            for (let i = 0; i < numNodes; i++) {
+                let isDominated = false;
+                for (let j = 0; j < numNodes; j++) {
+                    if (i !== j && dagData.scores[j] > dagData.scores[i]) {
+                        // Check if j is an ancestor or same generation
+                        isDominated = true;
+                        break;
+                    }
+                }
+                if (!isDominated && dagData.scores[i] > 0.8) { // High-scoring nodes
+                    paretoFront.add(i);
+                }
+            }
+
+            // Build nodes
+            nodes = [];
+            for (let i = 0; i < numNodes; i++) {
+                let nodeType = 'normal';
+                if (i === bestIdx) {
+                    nodeType = 'best';
+                } else if (paretoFront.has(i)) {
+                    nodeType = 'pareto';
+                }
+
+                nodes.push({
+                    id: i,
+                    index: i,
+                    score: dagData.scores[i],
+                    parents: dagData.parents[i],
+                    type: nodeType,
+                    candidate: candidates.candidates[i]
+                });
+            }
+
+            // Build links (edges from parent to child)
+            links = [];
+            for (let i = 0; i < numNodes; i++) {
+                const parentList = dagData.parents[i];
+                if (parentList && parentList[0] !== null) {
+                    for (const parent of parentList) {
+                        links.push({
+                            source: parent,
+                            target: i
+                        });
+                    }
+                }
+            }
+        }
+
+        function initializeVisualization() {
+            const container = document.getElementById('tree-container');
+            const width = container.clientWidth || window.innerWidth - 32;
+            const height = Math.max(600, window.innerHeight - 250);
+
+            svg = d3.select('#dag-svg')
                 .attr('width', width)
                 .attr('height', height)
                 .attr('viewBox', `0 0 ${width} ${height}`)
                 .attr('preserveAspectRatio', 'xMidYMid meet');
 
-            // Clear existing content
-            svg.selectAll('*').remove();
+            // Update arrowhead color for dark mode
+            const isDark = document.body.classList.contains('dark-mode');
+            d3.select('#arrowhead polygon')
+                .attr('fill', isDark ? '#404040' : '#dee2e6');
 
-            // Add zoom behavior
             zoom = d3.zoom()
                 .scaleExtent([0.1, 4])
                 .on('zoom', (event) => {
@@ -512,116 +631,179 @@
                 });
 
             svg.call(zoom);
+            g = svg.select('g');
+            if (g.empty()) {
+                g = svg.append('g');
+            }
 
-            g = svg.append('g');
-
-            // Center the initial view with better padding
-            const initialTransform = d3.zoomIdentity
-                .translate(150, 75); // Start with left/top padding
-            svg.call(zoom.transform, initialTransform);
-
-            renderTree();
+            renderDAG();
         }
 
-        function renderTree() {
+        function renderDAG() {
             const width = parseInt(svg.attr('width'));
             const height = parseInt(svg.attr('height'));
 
-            root = d3.hierarchy(treeData);
-
-            let treeLayout;
-
-            switch(currentLayout) {
-                case 'radial':
-                    treeLayout = d3.tree()
-                        .size([2 * Math.PI, Math.min(width, height) / 2 - 150])
-                        .separation((a, b) => (a.parent === b.parent ? 1 : 2) / a.depth);
-                    break;
-                case 'cluster':
-                    treeLayout = d3.cluster()
-                        .size([height - 150, width - 300]);
-                    break;
-                default: // tree
-                    treeLayout = d3.tree()
-                        .size([width - 300, height - 150])
-                        .separation((a, b) => a.parent === b.parent ? 1 : 1.5);
-                    break;
-            }
-
-            treeLayout(root);
-
-            // Clear existing
             g.selectAll('*').remove();
 
-            const isDark = document.body.classList.contains('dark-mode');
-            const linkColor = isDark ? '#6c757d' : '#adb5bd';
-            const nodeColor = isDark ? '#4da3ff' : '#4da3ff';
-
-            // Draw links
-            if (currentLayout === 'radial') {
-                g.selectAll('.link')
-                    .data(root.links())
-                    .join('path')
-                    .attr('class', 'link')
-                    .attr('d', d3.linkRadial()
-                        .angle(d => d.x)
-                        .radius(d => d.y))
-                    .attr('stroke', linkColor);
+            if (currentLayout === 'hierarchical') {
+                renderHierarchical(width, height);
             } else {
-                g.selectAll('.link')
-                    .data(root.links())
-                    .join('path')
-                    .attr('class', 'link')
-                    .attr('d', d3.linkHorizontal()
-                        .x(d => currentLayout === 'tree' ? d.x : d.y)
-                        .y(d => currentLayout === 'tree' ? d.y : d.x))
-                    .attr('stroke', linkColor);
+                renderForceDirected(width, height);
+            }
+        }
+
+        function renderHierarchical(width, height) {
+            // Calculate node depths (generation/level)
+            const depths = new Array(nodes.length).fill(0);
+            const visited = new Set();
+
+            function calculateDepth(nodeId) {
+                if (visited.has(nodeId)) return depths[nodeId];
+                visited.add(nodeId);
+
+                const parents = dagData.parents[nodeId];
+                if (!parents || parents[0] === null) {
+                    depths[nodeId] = 0;
+                } else {
+                    depths[nodeId] = Math.max(...parents.map(p => calculateDepth(p))) + 1;
+                }
+                return depths[nodeId];
             }
 
+            nodes.forEach((node, i) => calculateDepth(i));
+
+            const maxDepth = Math.max(...depths);
+
+            // Position nodes
+            const nodesAtDepth = {};
+            nodes.forEach((node, i) => {
+                const depth = depths[i];
+                if (!nodesAtDepth[depth]) nodesAtDepth[depth] = [];
+                nodesAtDepth[depth].push(i);
+            });
+
+            nodes.forEach((node, i) => {
+                const depth = depths[i];
+                const nodesInLevel = nodesAtDepth[depth];
+                const indexInLevel = nodesInLevel.indexOf(i);
+
+                node.x = (width / (nodesInLevel.length + 1)) * (indexInLevel + 1);
+                node.y = (height / (maxDepth + 2)) * (depth + 1);
+            });
+
+            drawGraph();
+        }
+
+        function renderForceDirected(width, height) {
+            if (simulation) simulation.stop();
+
+            simulation = d3.forceSimulation(nodes)
+                .force('link', d3.forceLink(links).id(d => d.id).distance(100))
+                .force('charge', d3.forceManyBody().strength(-300))
+                .force('center', d3.forceCenter(width / 2, height / 2))
+                .force('collision', d3.forceCollide().radius(30));
+
+            simulation.on('tick', () => {
+                updatePositions();
+            });
+
+            drawGraph();
+        }
+
+        function drawGraph() {
+            const isDark = document.body.classList.contains('dark-mode');
+
+            // Draw links
+            const linkSelection = g.selectAll('.link')
+                .data(links)
+                .join('path')
+                .attr('class', 'link')
+                .attr('d', d => {
+                    const source = nodes[d.source.id !== undefined ? d.source.id : d.source];
+                    const target = nodes[d.target.id !== undefined ? d.target.id : d.target];
+                    return `M ${source.x} ${source.y} L ${target.x} ${target.y}`;
+                });
+
             // Draw nodes
-            const nodes = g.selectAll('.node')
-                .data(root.descendants())
+            const nodeSelection = g.selectAll('.node')
+                .data(nodes)
                 .join('g')
-                .attr('class', d => d.depth === 0 ? 'node root' : 'node')
-                .attr('transform', d => {
-                    if (currentLayout === 'radial') {
-                        return `rotate(${d.x * 180 / Math.PI - 90}) translate(${d.y},0)`;
-                    } else if (currentLayout === 'tree') {
-                        return `translate(${d.x},${d.y})`;
-                    } else {
-                        return `translate(${d.y},${d.x})`;
-                    }
-                })
+                .attr('class', d => `node ${d.type}`)
+                .attr('transform', d => `translate(${d.x},${d.y})`)
                 .on('click', (event, d) => {
-                    showNodeInfo(d);
+                    showStrategy(d);
+                    highlightPath(d);
                 })
                 .on('mouseover', (event, d) => {
                     showTooltip(event, d);
                 })
                 .on('mouseout', hideTooltip);
 
-            nodes.append('circle')
-                .attr('r', 5);
+            nodeSelection.append('circle')
+                .attr('r', d => 8 + (d.score * 4));
 
-            nodes.append('text')
-                .attr('dy', '0.31em')
-                .attr('x', d => {
-                    if (currentLayout === 'radial') {
-                        return d.x < Math.PI === !d.children ? 6 : -6;
-                    }
-                    return d.children ? -8 : 8;
+            nodeSelection.append('text')
+                .attr('dy', '-12')
+                .attr('text-anchor', 'middle')
+                .text(d => `${d.id}`);
+
+            nodeSelection.append('text')
+                .attr('dy', '18')
+                .attr('text-anchor', 'middle')
+                .style('font-size', '10px')
+                .style('fill', 'var(--text-secondary)')
+                .text(d => d.score.toFixed(2));
+
+            if (currentLayout === 'hierarchical') {
+                const initialTransform = d3.zoomIdentity.translate(50, 50).scale(0.9);
+                svg.call(zoom.transform, initialTransform);
+            }
+        }
+
+        function updatePositions() {
+            g.selectAll('.link')
+                .attr('d', d => {
+                    return `M ${d.source.x} ${d.source.y} L ${d.target.x} ${d.target.y}`;
+                });
+
+            g.selectAll('.node')
+                .attr('transform', d => `translate(${d.x},${d.y})`);
+        }
+
+        function highlightPath(node) {
+            // Reset highlights
+            g.selectAll('.node').classed('selected', false);
+            g.selectAll('.link').classed('highlighted', false);
+
+            // Highlight selected node
+            g.selectAll('.node')
+                .filter(d => d.id === node.id)
+                .classed('selected', true);
+
+            // Highlight path from root to selected node
+            const pathNodes = new Set([node.id]);
+            const pathLinks = new Set();
+
+            function tracePath(nodeId) {
+                const parents = dagData.parents[nodeId];
+                if (parents && parents[0] !== null) {
+                    parents.forEach(parentId => {
+                        pathNodes.add(parentId);
+                        pathLinks.add(`${parentId}-${nodeId}`);
+                        tracePath(parentId);
+                    });
+                }
+            }
+
+            tracePath(node.id);
+
+            g.selectAll('.link')
+                .filter(d => {
+                    const sourceId = d.source.id !== undefined ? d.source.id : d.source;
+                    const targetId = d.target.id !== undefined ? d.target.id : d.target;
+                    return pathLinks.has(`${sourceId}-${targetId}`);
                 })
-                .attr('text-anchor', d => {
-                    if (currentLayout === 'radial') {
-                        return d.x < Math.PI === !d.children ? 'start' : 'end';
-                    }
-                    return d.children ? 'end' : 'start';
-                })
-                .attr('transform', d => currentLayout === 'radial' && d.x >= Math.PI ? 'rotate(180)' : null)
-                .text(d => d.data.name)
-                .clone(true).lower()
-                .attr('stroke', isDark ? '#1a1a1a' : '#ffffff')
-                .attr('stroke-width', 3);
+                .classed('highlighted', true);
         }
 
         function showTooltip(event, d) {
@@ -629,11 +811,16 @@
             const title = document.getElementById('tooltip-title');
             const info = document.getElementById('tooltip-info');
 
-            title.textContent = d.data.name;
+            const typeLabel = d.type === 'best' ? ' ⭐ BEST' : d.type === 'pareto' ? ' 🔶 Pareto' : '';
+            title.textContent = `Candidate ${d.id}${typeLabel}`;
+
+            const numParents = d.parents && d.parents[0] !== null ? d.parents.length : 0;
+            const isMerged = numParents > 1;
+
             info.innerHTML = `
-                <div>ID: ${d.data.id.substring(0, 8)}...</div>
-                <div>Depth: ${d.depth}</div>
-                <div>Children: ${d.children ? d.children.length : 0}</div>
+                <div>Score: ${d.score.toFixed(3)}</div>
+                <div>Parents: ${numParents}${isMerged ? ' (merged)' : ''}</div>
+                <div>Strategy: ${d.candidate.strategy.substring(0, 80)}...</div>
             `;
 
             tooltip.style.left = event.pageX + 10 + 'px';
@@ -645,81 +832,73 @@
             document.getElementById('tooltip').classList.remove('active');
         }
 
-        function showNodeInfo(d) {
-            const panel = document.getElementById('node-info-panel');
+        function showStrategy(node) {
+            const panel = document.getElementById('strategy-panel');
             const title = document.getElementById('panel-title');
-            const details = document.getElementById('panel-details');
+            const metrics = document.getElementById('panel-metrics');
+            const strategy = document.getElementById('panel-strategy');
 
-            title.textContent = d.data.name;
-            details.innerHTML = `
-                <div class="node-info-item">
-                    <span class="node-info-label">Run ID</span>
-                    <span class="node-info-value">${d.data.id}</span>
+            const typeLabel = node.type === 'best' ? ' ⭐ BEST' : node.type === 'pareto' ? ' 🔶 Pareto Front' : '';
+            title.textContent = `Candidate ${node.id}${typeLabel}`;
+
+            const numParents = node.parents && node.parents[0] !== null ? node.parents.length : 0;
+            const isMerged = numParents > 1;
+            const parentsList = isMerged ? node.parents.join(', ') : (numParents === 1 ? node.parents[0] : 'None (Root)');
+
+            metrics.innerHTML = `
+                <div class="strategy-metric">
+                    <div class="metric-label">Index</div>
+                    <div class="metric-value">${node.id}</div>
                 </div>
-                <div class="node-info-item">
-                    <span class="node-info-label">Depth</span>
-                    <span class="node-info-value">${d.depth}</span>
+                <div class="strategy-metric">
+                    <div class="metric-label">Score</div>
+                    <div class="metric-value">${node.score.toFixed(3)}</div>
                 </div>
-                <div class="node-info-item">
-                    <span class="node-info-label">Children</span>
-                    <span class="node-info-value">${d.children ? d.children.length : 0}</span>
+                <div class="strategy-metric">
+                    <div class="metric-label">Parents</div>
+                    <div class="metric-value">${parentsList}</div>
                 </div>
-                <div class="node-info-item">
-                    <span class="node-info-label">Descendants</span>
-                    <span class="node-info-value">${d.descendants().length - 1}</span>
+                <div class="strategy-metric">
+                    <div class="metric-label">Type</div>
+                    <div class="metric-value">${isMerged ? 'Merged' : 'Single'}</div>
                 </div>
-                ${d.parent ? `
-                <div class="node-info-item">
-                    <span class="node-info-label">Parent</span>
-                    <span class="node-info-value">${d.parent.data.name}</span>
-                </div>
-                ` : ''}
             `;
 
+            strategy.textContent = node.candidate.strategy;
             panel.classList.add('active');
+            selectedNode = node;
         }
 
         function closePanel() {
-            document.getElementById('node-info-panel').classList.remove('active');
+            document.getElementById('strategy-panel').classList.remove('active');
+            g.selectAll('.node').classed('selected', false);
+            g.selectAll('.link').classed('highlighted', false);
+            selectedNode = null;
         }
 
         function updateLayout() {
             currentLayout = document.getElementById('layout-select').value;
-            if (root) renderTree();
+            renderDAG();
         }
 
         function resetZoom() {
             const width = parseInt(svg.attr('width'));
-            const initialTransform = d3.zoomIdentity.translate(width / 2, 50);
+            const height = parseInt(svg.attr('height'));
+            const initialTransform = currentLayout === 'hierarchical'
+                ? d3.zoomIdentity.translate(50, 50).scale(0.9)
+                : d3.zoomIdentity.translate(width / 2, height / 2);
             svg.transition().duration(750).call(zoom.transform, initialTransform);
-        }
-
-        function expandAll() {
-            root.each(d => {
-                d._children = null;
-            });
-            renderTree();
-        }
-
-        function collapseAll() {
-            root.each(d => {
-                if (d.children && d.depth > 0) {
-                    d._children = d.children;
-                    d.children = null;
-                }
-            });
-            renderTree();
         }
 
         // Handle window resize
         window.addEventListener('resize', () => {
-            if (root) {
-                initializeTree();
+            if (dagData) {
+                initializeVisualization();
             }
         });
 
         // Load data on page load
-        loadTreeStructure();
+        loadData();
     </script>
 </body>
 </html>

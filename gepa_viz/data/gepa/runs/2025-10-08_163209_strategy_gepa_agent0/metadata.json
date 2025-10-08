@@ -1,0 +1,16 @@
+{
+  "run_name": "2025-10-08_163209_strategy_gepa_agent0",
+  "original_run_id": "452f03af3ef74183ae4c255ee371d5f9",
+  "experiment_id": "580876638885452028",
+  "export_date": "2025-10-08_163209",
+  "mlflow_run_name": "strategy_gepa_agent0",
+  "num_evaluations": 144,
+  "best_profit": 1080.6711482370224,
+  "best_score": 0.9788953801155554,
+  "best_step": 118,
+  "config": {
+    "evaluation_periods": 20,
+    "evaluation_seed": 73,
+    "gepa_auto": "light"
+  }
+}
